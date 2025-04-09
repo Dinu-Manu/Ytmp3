@@ -1,44 +1,24 @@
-const express = require('express');
-const axios = require('axios');
-const cheerio = require('cheerio');
-const cors = require('cors');
+const express = require("express");
 const app = express();
-app.use(cors());
+const ytmp3 = require("./api");
 
-async function scrapMP3(url) {
+app.get("/", (req, res) => {
+  res.send("YTMP3 API by DINUWH");
+});
+
+app.get("/ytmp3", async (req, res) => {
+  let { url } = req.query;
+  if (!url) return res.status(400).json({ error: "Please provide a YouTube URL ?url=" });
+
   try {
-    const { data } = await axios.post('https://v3.ytmp3.media/backend/api/mp3/text', {
-      q: url,
-      vt: 'home',
-    }, {
-      headers: {
-        'Content-Type': 'application/json',
-      }
-    });
-
-    if (data && data.data && data.data.mp3) {
-      const result = data.data.mp3.find(item => item.quality === '64kbps');
-      return {
-        title: data.data.meta.title,
-        download: result.url,
-        size: result.size,
-        quality: result.quality,
-      };
-    } else {
-      return { error: true, message: "MP3 not found" };
-    }
-  } catch (error) {
-    return { error: true, message: error.message };
+    const result = await ytmp3(url);
+    res.json(result);
+  } catch (e) {
+    res.status(500).json({ error: "Failed to fetch MP3" });
   }
-}
-
-app.get('/ytmp3', async (req, res) => {
-  const url = req.query.url;
-  if (!url) return res.status(400).json({ error: true, message: "URL required" });
-
-  const result = await scrapMP3(url);
-  res.json(result);
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log("API running on PORT " + PORT));
+app.listen(PORT, () => {
+  console.log("Server running on port " + PORT);
+});
