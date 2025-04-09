@@ -1,43 +1,44 @@
 const express = require('express');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const cors = require('cors');
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.use(cors());
 
-// Scrape function (example using ytmp3.cc clone or similar)
-async function scrapeYtmp3(youtubeUrl) {
+async function scrapMP3(url) {
   try {
-    const response = await axios.post('https://ytmp3.nu/api/ajaxSearch/index', new URLSearchParams({
-      query: youtubeUrl
-    }).toString(), {
+    const { data } = await axios.post('https://v3.ytmp3.media/backend/api/mp3/text', {
+      q: url,
+      vt: 'home',
+    }, {
       headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Type': 'application/json',
       }
     });
 
-    const data = response.data;
-
-    return {
-      title: data.title,
-      duration: data.duration,
-      audio_url: data.links.mp3['mp3-128'].url,
-      quality: '128kbps'
-    };
-  } catch (err) {
-    return { error: 'Failed to fetch conversion' };
+    if (data && data.data && data.data.mp3) {
+      const result = data.data.mp3.find(item => item.quality === '64kbps');
+      return {
+        title: data.data.meta.title,
+        download: result.url,
+        size: result.size,
+        quality: result.quality,
+      };
+    } else {
+      return { error: true, message: "MP3 not found" };
+    }
+  } catch (error) {
+    return { error: true, message: error.message };
   }
 }
 
-// Route
-app.get('/api/ytmp3', async (req, res) => {
-  const { url } = req.query;
-  if (!url) return res.status(400).send({ error: 'YouTube URL is missing' });
+app.get('/ytmp3', async (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).json({ error: true, message: "URL required" });
 
-  const result = await scrapeYtmp3(url);
+  const result = await scrapMP3(url);
   res.json(result);
 });
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`YTMP3 API running on http://localhost:${PORT}`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("API running on PORT " + PORT));
